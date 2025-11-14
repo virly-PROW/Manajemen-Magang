@@ -5,10 +5,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { createNotificationClient } from "@/lib/notificationClient"
 import supabase from "@/lib/supabaseClient"
 
 interface DudiRegistrationFormProps {
@@ -29,7 +27,6 @@ export function DudiRegistrationForm({
   onSuccess,
 }: DudiRegistrationFormProps) {
   const [loading, setLoading] = useState(false)
-  const [dudiOptions, setDudiOptions] = useState<{ id: number; perusahaan: string }[]>([])
   const [form, setForm] = useState({
     nama: "",
     nisn: "",
@@ -54,10 +51,10 @@ export function DudiRegistrationForm({
   // Reset form to empty when form opens
   useEffect(() => {
     if (open) {
-      // Reset form to completely empty
+      // Reset form to completely empty, tapi isi NISN dan DUDI otomatis
       setForm({
         nama: "",
-        nisn: "",
+        nisn: nisn || "",
         kelas: "",
         jurusan: "",
         email: "",
@@ -74,14 +71,7 @@ export function DudiRegistrationForm({
         no_hp: "",
       })
     }
-  }, [open, dudiId])
-
-  // Fetch DUDI options
-  useEffect(() => {
-    if (open) {
-      fetchDudiOptions()
-    }
-  }, [open])
+  }, [open, dudiId, nisn])
 
   // Auto focus on first input when dialog opens
   useEffect(() => {
@@ -92,21 +82,6 @@ export function DudiRegistrationForm({
       return () => clearTimeout(timer)
     }
   }, [open])
-
-
-  const fetchDudiOptions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("dudi")
-        .select("id, perusahaan")
-        .order("perusahaan")
-
-      if (error) throw error
-      setDudiOptions(data || [])
-    } catch (error) {
-      console.error("Error fetching DUDI options:", error)
-    }
-  }
 
   const validateForm = () => {
     const newErrors = {
@@ -379,26 +354,8 @@ export function DudiRegistrationForm({
               className="h-20"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="dudi">DUDI</Label>
-              <Select
-                value={form.dudi_id}
-                onValueChange={(value) => setForm({ ...form, dudi_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih DUDI" />
-                </SelectTrigger>
-                <SelectContent>
-                  {dudiOptions.map((dudi) => (
-                    <SelectItem key={dudi.id} value={dudi.id.toString()}>
-                      {dudi.perusahaan}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* Field DUDI disembunyikan karena sudah dipilih dari tombol "Daftar Sekarang" */}
+          <input type="hidden" value={form.dudi_id} />
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="periode_mulai">Periode Mulai</Label>

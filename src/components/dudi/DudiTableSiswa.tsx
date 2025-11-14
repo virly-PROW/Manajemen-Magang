@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { toast } from "sonner"
 import supabase from "@/lib/supabaseClient"
+import { DudiRegistrationForm } from "./DudiRegistrationForm"
 
 // icons
 import { MapPin, User, Mail, Phone, Search } from "lucide-react"
@@ -40,6 +41,8 @@ export function DudiTableSiswa({ nisn }: DudiTableSiswaProps) {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [registering, setRegistering] = useState<number | null>(null)
+  const [selectedDudi, setSelectedDudi] = useState<{ id: number; name: string } | null>(null)
+  const [isFormOpen, setIsFormOpen] = useState(false)
 
   // Ambil data DUDI + statistik
   const fetchDudiData = async () => {
@@ -131,54 +134,16 @@ export function DudiTableSiswa({ nisn }: DudiTableSiswaProps) {
     )
   }, [dudiList, search])
 
-  // Daftar DUDI
-  const handleRegister = async (dudiId: number) => {
+  // Daftar DUDI - buka form pendaftaran
+  const handleRegister = (dudi: DudiWithStats) => {
     if (!nisn) {
       toast.error("NISN tidak ditemukan. Silakan login ulang.")
       return
     }
 
-    setRegistering(dudiId)
-
-    try {
-      const { data: existingRegistration, error: checkError } = await supabase
-        .from("magang")
-        .select("id, status_pendaftaran")
-        .eq("nisn", Number(nisn))
-        .in("status_pendaftaran", ["menunggu", "diterima"])
-        .maybeSingle()
-
-      if (checkError) throw checkError
-
-      if (existingRegistration) {
-        toast.error("Anda sudah memiliki pendaftaran aktif!")
-        return
-      }
-
-      const { error: insertError } = await supabase
-        .from("magang")
-        .insert([
-          {
-            dudi_id: Number(dudiId),
-            nisn: Number(nisn),
-            periode_mulai: new Date().toISOString().split("T")[0],
-            status: "menunggu",
-            status_pendaftaran: "menunggu",
-          },
-        ])
-
-      if (insertError) throw insertError
-
-      toast.success("Pendaftaran berhasil! Status: Menunggu persetujuan.")
-      fetchDudiData()
-      // Beritahu komponen lain (SectionCardsMagang, dashboard, dll.)
-      window.dispatchEvent(new CustomEvent("magang:changed"))
-    } catch (error) {
-      console.error("Registration error:", error)
-      toast.error("Gagal mendaftar! Silakan coba lagi.")
-    } finally {
-      setRegistering(null)
-    }
+    // Buka form pendaftaran
+    setSelectedDudi({ id: dudi.id, name: dudi.perusahaan })
+    setIsFormOpen(true)
   }
 
   // Batalkan DUDI
@@ -266,12 +231,11 @@ export function DudiTableSiswa({ nisn }: DudiTableSiswaProps) {
 
     return (
       <Button
-        onClick={() => handleRegister(dudi.id)}
-        disabled={registering === dudi.id}
+        onClick={() => handleRegister(dudi)}
         size="sm"
         className="w-full bg-sky-500 hover:bg-sky-600 transition text-white"
       >
-        {registering === dudi.id ? "Mendaftar..." : "Daftar Sekarang"}
+        Daftar Sekarang
       </Button>
     )
   }
@@ -381,6 +345,22 @@ export function DudiTableSiswa({ nisn }: DudiTableSiswaProps) {
           ))
         )}
       </div>
+
+      {/* Form Pendaftaran */}
+      {selectedDudi && nisn && (
+        <DudiRegistrationForm
+          open={isFormOpen}
+          onOpenChange={setIsFormOpen}
+          dudiId={selectedDudi.id}
+          dudiName={selectedDudi.name}
+          nisn={nisn}
+          onSuccess={() => {
+            fetchDudiData()
+            setSelectedDudi(null)
+            setIsFormOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
