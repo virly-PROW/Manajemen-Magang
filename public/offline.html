@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tidak Ada Koneksi - SMK Brantas Karangkates</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f8fafc;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .offline-container {
+        text-align: center;
+        max-width: 500px;
+        width: 100%;
+      }
+
+      .wifi-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 30px;
+        position: relative;
+      }
+
+      .wifi-icon::before {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+        border-radius: 50%;
+      }
+
+      .wifi-symbol {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 48px;
+        color: #64748b;
+      }
+
+      h1 {
+        font-size: 28px;
+        color: #1e293b;
+        margin-bottom: 12px;
+        font-weight: 600;
+      }
+
+      p {
+        font-size: 16px;
+        color: #64748b;
+        margin-bottom: 32px;
+        line-height: 1.6;
+      }
+
+      .reload-button {
+        background-color: #2563EB;
+        color: white;
+        border: none;
+        padding: 14px 32px;
+        font-size: 16px;
+        font-weight: 500;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+      }
+
+      .reload-button:hover {
+        background-color: #1d4ed8;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      .wifi-icon {
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @media (max-width: 480px) {
+        h1 { font-size: 24px; }
+        p { font-size: 14px; }
+        .wifi-icon { width: 100px; height: 100px; }
+        .wifi-symbol { font-size: 40px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="offline-container">
+      <div class="wifi-icon">
+        <div class="wifi-symbol">📶</div>
+      </div>
+
+      <h1>Tidak Ada Koneksi Internet</h1>
+
+      <p>
+        Sepertinya koneksi internet Anda terputus. Silakan periksa koneksi
+        internet Anda dan coba lagi.
+      </p>
+
+      <button class="reload-button" onclick="window.location.reload()">
+        Muat Ulang Halaman
+      </button>
+    </div>
+
+    <script>
+      // Cek apakah benar-benar offline atau hanya service worker yang bermasalah
+      let hasReloaded = false;
+      
+      // Fungsi untuk cek koneksi dengan fetch real
+      async function checkRealConnection() {
+        try {
+          const response = await fetch('/', { 
+            method: 'HEAD',
+            cache: 'no-cache',
+            mode: 'no-cors' // Gunakan no-cors untuk menghindari CORS issues
+          });
+          return true;
+        } catch (error) {
+          // Jika fetch gagal, coba lagi dengan timeout
+          return new Promise((resolve) => {
+            const timeout = setTimeout(() => resolve(false), 2000);
+            fetch('/', { 
+              method: 'HEAD',
+              cache: 'no-cache',
+              mode: 'no-cors'
+            })
+              .then(() => {
+                clearTimeout(timeout);
+                resolve(true);
+              })
+              .catch(() => {
+                clearTimeout(timeout);
+                resolve(false);
+              });
+          });
+        }
+      }
+      
+      // Cek koneksi saat halaman load
+      (async () => {
+        // Jika navigator.onLine true, cek dengan fetch real
+        if (navigator.onLine && !hasReloaded) {
+          const isActuallyOnline = await checkRealConnection();
+          if (isActuallyOnline) {
+            hasReloaded = true;
+            // Coba unregister service worker dulu jika ada
+            if ('serviceWorker' in navigator) {
+              try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                if (registrations.length > 0) {
+                  // Unregister service worker yang bermasalah
+                  await Promise.all(
+                    registrations.map(reg => reg.unregister())
+                  );
+                }
+              } catch (e) {
+                console.warn('Error unregistering service worker:', e);
+              }
+            }
+            // Reload setelah unregister
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 100);
+          }
+        }
+      })();
+      
+      // Auto reload saat kembali online (hanya sekali)
+      window.addEventListener('online', async () => {
+        if (!hasReloaded) {
+          const isActuallyOnline = await checkRealConnection();
+          if (isActuallyOnline) {
+            hasReloaded = true;
+            // Unregister service worker jika ada
+            if ('serviceWorker' in navigator) {
+              try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                if (registrations.length > 0) {
+                  await Promise.all(
+                    registrations.map(reg => reg.unregister())
+                  );
+                }
+              } catch (e) {
+                console.warn('Error unregistering service worker:', e);
+              }
+            }
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 100);
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
