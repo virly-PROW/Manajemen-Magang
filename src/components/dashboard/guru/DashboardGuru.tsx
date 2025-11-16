@@ -11,6 +11,7 @@ import {
   User,
   Calendar,
   TrendingUp,
+  GraduationCap,
 } from "lucide-react"
 
 interface SiswaMagang {
@@ -32,6 +33,15 @@ interface LogbookEntry {
   status: string
 }
 
+interface DudiAktif {
+  id: number
+  perusahaan: string
+  jumlah_siswa: number
+  sisa_kuota: number
+  alamat?: string
+  telepon?: string
+}
+
 interface DashboardStats {
   totalSiswa: number
   totalDudi: number
@@ -50,6 +60,7 @@ export function DashboardGuru() {
   })
   const [siswaMagang, setSiswaMagang] = useState<SiswaMagang[]>([])
   const [logbookTerbaru, setLogbookTerbaru] = useState<LogbookEntry[]>([])
+  const [dudiAktif, setDudiAktif] = useState<DudiAktif[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
 
@@ -76,7 +87,7 @@ export function DashboardGuru() {
       if (dudiError) console.error("Error dudi:", dudiError)
       if (logbookError) console.error("Error logbook:", logbookError)
 
-      // === Fetch Siswa Magang ===
+      // === Fetch Siswa Magang (hanya yang berlangsung) ===
       const { data: magangData, error: magangError } = await supabase
       .from("magang")
       .select(`
@@ -87,9 +98,9 @@ export function DashboardGuru() {
         siswa:nisn (nama, kelas, jurusan),
         dudi:dudi_id (perusahaan)
       `)
+      .eq("status", "berlangsung")
       .order("id", { ascending: false })
       .limit(5)
-    
 
       if (magangError) console.error("Error magang:", magangError)
 
@@ -105,6 +116,57 @@ export function DashboardGuru() {
           periode_selesai: item.periode_selesai,
         })) || []
 
+      // === Fetch DUDI Aktif (4 nama DUDI dari tabel dudi dengan jumlah siswa) ===
+      try {
+        const { data: dudiData, error: dudiDataError } = await supabase
+          .from("dudi")
+          .select("*")
+          .order("id", { ascending: true })
+          .limit(4)
+
+        console.log("🔍 DashboardGuru: DUDI Data fetched:", dudiData)
+        console.log("🔍 DashboardGuru: DUDI Error:", dudiDataError)
+
+        if (dudiDataError) {
+          console.error("Error dudi data:", dudiDataError)
+          setDudiAktif([])
+        } else if (!dudiData || dudiData.length === 0) {
+          console.log("⚠️ DashboardGuru: No DUDI data found")
+          setDudiAktif([])
+        } else {
+          // Fetch data magang untuk hitung jumlah siswa per DUDI
+          const { data: magangData, error: magangDataError } = await supabase
+            .from("magang")
+            .select("dudi_id")
+
+          if (magangDataError) console.error("Error magang data:", magangDataError)
+
+          // Count jumlah siswa per DUDI (semua status)
+          const dudiCountMap: Record<number, number> = {}
+          magangData?.forEach((m: any) => {
+            if (m.dudi_id) {
+              dudiCountMap[m.dudi_id] = (dudiCountMap[m.dudi_id] || 0) + 1
+            }
+          })
+
+          const processedDudiAktif: DudiAktif[] = dudiData.map((dudi: any) => ({
+            id: dudi.id,
+            perusahaan: dudi.perusahaan || "Unknown",
+            jumlah_siswa: dudiCountMap[dudi.id] || 0,
+            sisa_kuota: 0,
+            alamat: dudi.alamat || null,
+            telepon: dudi.telepon || dudi.no_hp || null,
+          }))
+
+          console.log("📊 DashboardGuru: Processed DUDI Aktif:", processedDudiAktif)
+          setDudiAktif(processedDudiAktif)
+          console.log("✅ DashboardGuru: DUDI Aktif loaded:", processedDudiAktif.length)
+        }
+      } catch (error) {
+        console.error("❌ DashboardGuru: Error fetching DUDI:", error)
+        setDudiAktif([])
+      }
+
       // === Fetch Logbook Terbaru ===
       const { data: logbookData, error: logbookDataError } = await supabase
         .from("logbook")
@@ -116,7 +178,7 @@ export function DashboardGuru() {
           siswa:nisn (nama)
         `)
         .order("id", { ascending: false })
-        .limit(5)
+        .limit(4)
 
       if (logbookDataError) console.error("Error logbook data:", logbookDataError)
 
@@ -130,7 +192,14 @@ export function DashboardGuru() {
         })) || []
 
       // === Stats ===
-      const siswaAktif = processedMagang.filter(s => s.status === "berlangsung").length
+      // Hitung siswa aktif
+      const { count: siswaAktifCount, error: siswaAktifError } = await supabase
+        .from("magang")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "berlangsung")
+      
+      if (siswaAktifError) console.error("Error siswa aktif:", siswaAktifError)
+      const siswaAktif = siswaAktifCount || 0
       
       // Get today's date in multiple formats to ensure compatibility
       const now = new Date()
@@ -240,7 +309,7 @@ export function DashboardGuru() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "berlangsung":
-        return <Badge className="bg-green-100 text-green-800">Berlangsung</Badge>
+        return <Badge className="bg-green-100 text-green-800">Aktif</Badge>
       case "selesai":
         return <Badge className="bg-blue-100 text-blue-800">Selesai</Badge>
       case "batal":
@@ -253,7 +322,7 @@ export function DashboardGuru() {
   const getLogbookStatusBadge = (status: string) => {
     switch (status) {
       case "disetujui":
-        return <Badge className="bg-blue-100 text-blue-800">Disetujui</Badge>
+        return <Badge className="bg-green-100 text-green-800">Disetujui</Badge>
       case "ditolak":
         return <Badge className="bg-red-100 text-red-800">Ditolak</Badge>
       case "belum_diverifikasi":
@@ -293,57 +362,156 @@ export function DashboardGuru() {
         />
       </div>
 
-      {/* === Magang Terbaru === */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-gray-600" />
-            Magang Terbaru
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {siswaMagang.filter((s) => s.status === "berlangsung").length === 0 ?(
-              <p className="text-sm text-gray-500 text-center py-4">
-                Belum ada siswa magang yang berlangsung
-              </p>
-            ) : (
-                siswaMagang
-                  .filter((s) => s.status === "berlangsung")
-                  .map((siswa) => (
-                <div key={siswa.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900">{siswa.nama}</p>
-                    <p className="text-sm text-gray-600">{siswa.kelas} • {siswa.jurusan}</p>
-                    <p className="text-sm text-gray-500">{siswa.dudi_nama}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {getStatusBadge(siswa.status)}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* === Two Column Layout === */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Left Column */}
+        <div className="space-y-4">
+          {/* === Magang Terbaru === */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-gray-600" />
+                Magang Terbaru
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {siswaMagang.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    Belum ada siswa magang yang berlangsung
+                  </p>
+                ) : (
+                  siswaMagang.map((siswa) => (
+                    <div key={siswa.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                        <GraduationCap className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900">{siswa.nama}</p>
+                        <p className="text-sm text-gray-600">{siswa.dudi_nama}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(siswa.periode_mulai).toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric', year: 'numeric' })} - {siswa.periode_selesai ? new Date(siswa.periode_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '-'}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {getStatusBadge(siswa.status)}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* === Progress Overview === */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-blue-600" />
-            Progress Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ProgressItem label="Siswa Magang Aktif" value={stats.siswaAktif} total={stats.totalSiswa} />
-          <ProgressItem label="DUDI Partner" value={stats.totalDudi} total={10} />
-          <ProgressItem label="Logbook Hari Ini" value={stats.logbookHariIni} total={stats.totalSiswa} />
-        </CardContent>
-      </Card>
+          {/* === Logbook Terbaru === */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-gray-600" />
+                Logbook Terbaru
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {logbookTerbaru.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    Belum ada logbook
+                  </p>
+                ) : (
+                  logbookTerbaru.map((logbook) => (
+                    <div key={logbook.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
+                          <BookOpen className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-900 mb-1 line-clamp-2">{logbook.aktivitas}</p>
+                          <p className="text-xs text-gray-500 mb-2">
+                            {new Date(logbook.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'numeric', year: 'numeric' })}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            {getLogbookStatusBadge(logbook.status)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-4">
+          {/* === Progress Overview === */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                Progress Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ProgressItem 
+                label="Siswa Aktif Magang" 
+                value={stats.siswaAktif} 
+                total={stats.totalSiswa || 1} 
+              />
+              <ProgressItem 
+                label="Logbook Hari Ini" 
+                value={stats.logbookHariIni} 
+                total={stats.siswaAktif || 1} 
+              />
+            </CardContent>
+          </Card>
+
+          {/* === DUDI Aktif === */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-green-600" />
+                DUDI Aktif
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {dudiAktif.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    Belum ada DUDI
+                  </p>
+                ) : (
+                  dudiAktif.map((dudi) => (
+                    <div key={dudi.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
+                          <Building2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="font-medium text-gray-900">{dudi.perusahaan}</p>
+                            {dudi.jumlah_siswa > 0 && (
+                              <Badge className="bg-green-100 text-green-800 shrink-0">
+                                {dudi.jumlah_siswa} siswa
+                              </Badge>
+                            )}
+                          </div>
+                          {dudi.alamat && (
+                            <p className="text-sm text-gray-600 mb-1">{dudi.alamat}</p>
+                          )}
+                          {dudi.telepon && (
+                            <p className="text-sm text-gray-600">{dudi.telepon}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
