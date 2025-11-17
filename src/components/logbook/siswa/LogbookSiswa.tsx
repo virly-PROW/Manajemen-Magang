@@ -41,6 +41,7 @@ export function LogbookSiswa() {
   const [uploading, setUploading] = useState(false)
   const [fullMediaUrl, setFullMediaUrl] = useState<string | null>(null)
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false)
+  const [viewportHeight, setViewportHeight] = useState<number>(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; logbook: LogbookEntry | null }>({
     open: false,
@@ -455,9 +456,64 @@ export function LogbookSiswa() {
     }
   }, [isDialogOpen])
 
-  // Handle ESC key to close full screen media
+  // Get actual viewport height for mobile (handles address bar)
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      // Use window.innerHeight for actual viewport height (excludes address bar)
+      setViewportHeight(window.innerHeight)
+    }
+    
+    updateViewportHeight()
+    window.addEventListener('resize', updateViewportHeight)
+    window.addEventListener('orientationchange', updateViewportHeight)
+    
+    // Update on scroll (for mobile browsers that hide/show address bar)
+    let timeoutId: NodeJS.Timeout
+    const handleScroll = () => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(updateViewportHeight, 150)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      window.removeEventListener('resize', updateViewportHeight)
+      window.removeEventListener('orientationchange', updateViewportHeight)
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  // Handle ESC key to close full screen media and prevent body scroll
   useEffect(() => {
     if (isFullScreenOpen) {
+      // Update viewport height when full screen opens
+      const actualHeight = window.innerHeight
+      setViewportHeight(actualHeight)
+      
+      // Prevent body scroll when full screen is open
+      const originalBodyOverflow = window.getComputedStyle(document.body).overflow
+      const originalHtmlOverflow = window.getComputedStyle(document.documentElement).overflow
+      const originalBodyHeight = document.body.style.height
+      const originalHtmlHeight = document.documentElement.style.height
+      
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      document.body.style.height = `${actualHeight}px`
+      document.documentElement.style.height = `${actualHeight}px`
+      
+      // Prevent scroll on mobile - only prevent if scrolling outside the media container
+      let touchStartY = 0
+      const preventScroll = (e: TouchEvent) => {
+        // Allow touch on the media container itself
+        const target = e.target as HTMLElement
+        if (target.closest('video, img')) {
+          return
+        }
+        // Prevent scroll on the overlay background
+        e.preventDefault()
+      }
+      
+      document.addEventListener('touchmove', preventScroll, { passive: false })
+      
       const handleEsc = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
           setIsFullScreenOpen(false)
@@ -465,7 +521,13 @@ export function LogbookSiswa() {
         }
       }
       window.addEventListener("keydown", handleEsc)
+      
       return () => {
+        document.body.style.overflow = originalBodyOverflow
+        document.documentElement.style.overflow = originalHtmlOverflow
+        document.body.style.height = originalBodyHeight
+        document.documentElement.style.height = originalHtmlHeight
+        document.removeEventListener('touchmove', preventScroll)
         window.removeEventListener("keydown", handleEsc)
       }
     }
@@ -766,39 +828,77 @@ export function LogbookSiswa() {
       {/* Full Screen Media Overlay */}
       {isFullScreenOpen && fullMediaUrl && (
         <div 
-          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4"
+          className="fixed z-[100] bg-black flex items-center justify-center"
+          style={{
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
+            minHeight: '100vh',
+            position: 'fixed',
+            overflow: 'hidden',
+            touchAction: 'none',
+            WebkitOverflowScrolling: 'touch'
+          }}
           onClick={() => {
             setIsFullScreenOpen(false)
             setFullMediaUrl(null)
           }}
         >
           <button
-            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
-            onClick={() => {
+            className="absolute top-2 right-2 sm:top-4 sm:right-4 text-white hover:text-gray-300 z-10 bg-black/50 rounded-full p-2 backdrop-blur-sm transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
               setIsFullScreenOpen(false)
               setFullMediaUrl(null)
             }}
             aria-label="Tutup"
+            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
           >
-            <XCircle className="w-8 h-8" />
+            <XCircle className="w-6 h-6 sm:w-8 sm:h-8" />
           </button>
           <div 
-            className="w-full h-full flex items-center justify-center p-4"
+            className="w-full h-full flex items-center justify-center"
+            style={{
+              width: '100%',
+              height: '100%',
+              maxWidth: '100vw',
+              maxHeight: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
+              overflow: 'hidden',
+              padding: '0.5rem'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/(\.mp4|\.webm|\.ogg)$/i.test(fullMediaUrl) ? (
               <video 
                 src={fullMediaUrl} 
                 controls
-                className="max-w-full max-h-full rounded-lg object-contain"
+                className="object-contain"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
+                  display: 'block'
+                }}
                 autoPlay
+                playsInline
               />
             ) : (
               <img 
                 src={fullMediaUrl} 
                 alt="Media kegiatan" 
-                className="max-w-full max-h-full rounded-lg object-contain"
-                style={{ maxWidth: '100vw', maxHeight: '100vh' }}
+                className="object-contain"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  display: 'block'
+                }}
               />
             )}
           </div>

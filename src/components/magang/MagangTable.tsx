@@ -39,7 +39,7 @@ type MagangRow = {
 export default function MagangTable() {
   const [rows, setRows] = useState<MagangRow[]>([])
   const [pageIndex, setPageIndex] = useState(0)
-  const pageSize = 5
+  const [pageSize, setPageSize] = useState(5)
   const [loading, setLoading] = useState<boolean>(true)
   const [open, setOpen] = useState<boolean>(false)
   const [editOpen, setEditOpen] = useState<boolean>(false)
@@ -48,6 +48,7 @@ export default function MagangTable() {
   const [editing, setEditing] = useState<MagangRow | null>(null)
   const [copied, setCopied] = useState<boolean>(false)
   const [searchTerm, setSearchTerm] = useState<string>("")
+  const [statusFilter, setStatusFilter] = useState<string>("semua")
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; row: MagangRow | null }>({ open: false, row: null })
   const qrCodeRef = useRef<SVGSVGElement | null>(null)
   const [downloading, setDownloading] = useState<boolean>(false)
@@ -701,21 +702,32 @@ export default function MagangTable() {
   }, [])
 
   const filteredRows = React.useMemo(() => {
+    let filtered = rows
+
+    // Filter by status
+    if (statusFilter !== "semua") {
+      filtered = filtered.filter((row) => row.status === statusFilter)
+    }
+
+    // Filter by search term
     const query = searchTerm.trim().toLowerCase()
-    if (!query) return rows
-    return rows.filter((row) => {
-      const fields = [
-        row.siswa?.nama ?? "",
-        row.nisn?.toString() ?? "",
-        row.siswa?.kelas ?? "",
-        row.siswa?.jurusan ?? "",
-        row.dudi?.perusahaan ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-      return fields.includes(query)
-    })
-  }, [rows, searchTerm])
+    if (query) {
+      filtered = filtered.filter((row) => {
+        const searchFields = [
+          row.siswa?.nama ?? "",
+          row.nisn?.toString() ?? "",
+          row.siswa?.kelas ?? "",
+          row.siswa?.jurusan ?? "",
+          row.dudi?.perusahaan ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+        return searchFields.includes(query)
+      })
+    }
+
+    return filtered
+  }, [rows, searchTerm, statusFilter])
 
   // Auto focus on first input when create dialog opens
   useEffect(() => {
@@ -765,11 +777,17 @@ export default function MagangTable() {
                 placeholder="Cari siswa, NIS, kelas, jurusan, DUDI..."
                 className="w-full pl-10"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setPageIndex(0) // Reset to first page when search changes
+                }}
               />
             </div>
             <div className="flex gap-2">
-              <Select defaultValue="semua">
+              <Select value={statusFilter} onValueChange={(value) => {
+                setStatusFilter(value)
+                setPageIndex(0) // Reset to first page when filter changes
+              }}>
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -780,7 +798,10 @@ export default function MagangTable() {
                   <SelectItem value="batal">Batal</SelectItem>
                 </SelectContent>
               </Select>
-              <Select defaultValue="5">
+              <Select value={pageSize.toString()} onValueChange={(value) => {
+                setPageSize(Number(value))
+                setPageIndex(0) // Reset to first page when page size changes
+              }}>
                 <SelectTrigger className="w-24">
                   <SelectValue placeholder="Per halaman" />
                 </SelectTrigger>
