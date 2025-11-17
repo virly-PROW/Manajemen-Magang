@@ -828,19 +828,24 @@ export function LogbookSiswa() {
       {/* Full Screen Media Overlay */}
       {isFullScreenOpen && fullMediaUrl && (
         <div 
-          className="fixed z-[100] bg-black flex items-center justify-center"
+          className="fixed z-[100] bg-black"
           style={{
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
             width: '100vw',
-            height: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
-            minHeight: '100vh',
+            height: '100dvh', // Dynamic viewport height for mobile (excludes browser UI)
+            minHeight: '100dvh',
             position: 'fixed',
             overflow: 'hidden',
             touchAction: 'none',
-            WebkitOverflowScrolling: 'touch'
+            WebkitOverflowScrolling: 'touch',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: 0,
+            padding: 0
           }}
           onClick={() => {
             setIsFullScreenOpen(false)
@@ -848,26 +853,34 @@ export function LogbookSiswa() {
           }}
         >
           <button
-            className="absolute top-2 right-2 sm:top-4 sm:right-4 text-white hover:text-gray-300 z-10 bg-black/50 rounded-full p-2 backdrop-blur-sm transition-colors"
+            className="absolute top-2 right-2 sm:top-4 sm:right-4 text-white hover:text-gray-300 z-10 bg-black/70 rounded-full p-2 backdrop-blur-sm transition-colors"
             onClick={(e) => {
               e.stopPropagation()
               setIsFullScreenOpen(false)
               setFullMediaUrl(null)
             }}
             aria-label="Tutup"
-            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+            style={{ 
+              touchAction: 'manipulation', 
+              WebkitTapHighlightColor: 'transparent',
+              zIndex: 1000
+            }}
           >
             <XCircle className="w-6 h-6 sm:w-8 sm:h-8" />
           </button>
           <div 
-            className="w-full h-full flex items-center justify-center"
+            className="flex items-center justify-center"
             style={{
-              width: '100%',
-              height: '100%',
+              width: '100vw',
+              height: '100dvh',
               maxWidth: '100vw',
-              maxHeight: viewportHeight > 0 ? `${viewportHeight}px` : '100vh',
+              maxHeight: '100dvh',
               overflow: 'hidden',
-              padding: '0.5rem'
+              margin: 0,
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -875,29 +888,33 @@ export function LogbookSiswa() {
               <video 
                 src={fullMediaUrl} 
                 controls
-                className="object-contain"
                 style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  width: 'auto',
-                  height: 'auto',
-                  display: 'block'
+                  width: '100%',
+                  height: '100%',
+                  maxWidth: '100vw',
+                  maxHeight: '100dvh',
+                  objectFit: 'contain',
+                  display: 'block',
+                  margin: 0,
+                  padding: 0
                 }}
                 autoPlay
                 playsInline
+                controlsList="nodownload"
               />
             ) : (
               <img 
                 src={fullMediaUrl} 
                 alt="Media kegiatan" 
-                className="object-contain"
                 style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  width: 'auto',
-                  height: 'auto',
+                  width: '100%',
+                  height: '100%',
+                  maxWidth: '100vw',
+                  maxHeight: '100dvh',
                   objectFit: 'contain',
-                  display: 'block'
+                  display: 'block',
+                  margin: 0,
+                  padding: 0
                 }}
               />
             )}
