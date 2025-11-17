@@ -1,9 +1,10 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { IconUser, IconBuilding, IconCalendar, IconMapPin } from "@tabler/icons-react"
+import { useSession } from "next-auth/react"
 import supabase from "@/lib/supabaseClient"
 
 type MagangData = {
@@ -31,16 +32,213 @@ type MagangData = {
 export function MagangSiswa() {
   const [magangData, setMagangData] = useState<MagangData | null>(null)
   const [loading, setLoading] = useState(true)
+  const { data: session, status } = useSession()
+
+  const fetchMagangData = useCallback(async () => {
+    try {
+      setLoading(true)
+      
+      // Ambil email user yang login dari NextAuth
+      if (status === "loading") {
+        console.log("⏳ Session masih loading...")
+        setLoading(false)
+        return
+      }
+
+      if (status === "unauthenticated" || !session?.user?.email) {
+        console.error("❌ User tidak terautentikasi atau email tidak ditemukan")
+        console.log("Session status:", status)
+        console.log("Session data:", session)
+        setMagangData(null)
+        setLoading(false)
+        return
+      }
+
+      const userEmailOriginal = session.user.email
+      const userEmail = userEmailOriginal.toLowerCase().trim()
+      console.log("✅ User email from NextAuth (original):", userEmailOriginal)
+      console.log("✅ User email from NextAuth (normalized):", userEmail)
+
+      // Ambil semua data siswa untuk debugging dan matching
+      const { data: allSiswa, error: allSiswaError } = await supabase
+        .from("siswa")
+        .select("nisn, nama, kelas, jurusan, email, no_hp, alamat")
+      
+      console.log("🔍 Semua data siswa di database:", allSiswa)
+      console.log("📧 Email yang dicari:", userEmail)
+      
+      if (allSiswa) {
+        console.log("📋 Daftar email di database:")
+        allSiswa.forEach((s, idx) => {
+          const dbEmail = s.email ? s.email.toLowerCase().trim() : null
+          const match = dbEmail === userEmail ? "✅ MATCH!" : "❌"
+          console.log(`${idx + 1}. ${match} "${s.email}" (normalized: "${dbEmail}")`)
+        })
+      }
+
+      // Cek di tabel siswa apakah ada data dengan email yang sama
+      // Coba multiple methods untuk memastikan match
+      let siswaData = null
+      let siswaError = null
+      
+      // Method 1: Exact match dengan eq (normalized)
+      const { data: siswaData1, error: error1 } = await supabase
+        .from("siswa")
+        .select("nisn, nama, kelas, jurusan, email, no_hp, alamat")
+        .eq("email", userEmail)
+        .maybeSingle()
+      
+      if (siswaData1 && !error1) {
+        siswaData = siswaData1
+        console.log("✅ Found dengan eq (normalized):", siswaData)
+      } else {
+        // Method 1b: Exact match dengan eq (original)
+        const { data: siswaData1b, error: error1b } = await supabase
+          .from("siswa")
+          .select("nisn, nama, kelas, jurusan, email, no_hp, alamat")
+          .eq("email", userEmailOriginal)
+          .maybeSingle()
+        
+        if (siswaData1b && !error1b) {
+          siswaData = siswaData1b
+          console.log("✅ Found dengan eq (original):", siswaData)
+        } else {
+          // Method 2: Case-insensitive dengan ilike
+          const { data: siswaData2, error: error2 } = await supabase
+            .from("siswa")
+            .select("nisn, nama, kelas, jurusan, email, no_hp, alamat")
+            .ilike("email", userEmail)
+            .maybeSingle()
+          
+          if (siswaData2 && !error2) {
+            siswaData = siswaData2
+            console.log("✅ Found dengan ilike (case-insensitive):", siswaData)
+          } else {
+            // Method 3: Manual filter dari allSiswa (coba normalized dan original)
+            if (allSiswa && !allSiswaError) {
+              const matched = allSiswa.find(s => {
+                if (!s.email) return false
+                const dbEmailNormalized = s.email.toLowerCase().trim()
+                const dbEmailOriginal = s.email.trim()
+                // Coba match dengan normalized
+                if (dbEmailNormalized === userEmail) return true
+                // Coba match dengan original
+                if (dbEmailOriginal === userEmailOriginal) return true
+                // Coba match dengan original normalized
+                if (dbEmailNormalized === userEmailOriginal.toLowerCase().trim()) return true
+                return false
+              })
+              if (matched) {
+                siswaData = matched
+                console.log("✅ Found dengan manual filter:", siswaData)
+              } else {
+                console.log("❌ Tidak ada match dengan semua metode")
+              }
+            }
+            siswaError = error2 || allSiswaError
+          }
+        }
+      }
+
+      console.log("📊 Hasil query siswa final:", siswaData)
+      console.log("⚠️ Error query siswa:", siswaError)
+
+      if (siswaError) {
+        console.error("❌ Error fetching siswa data:", siswaError)
+        setMagangData(null)
+        setLoading(false)
+        return
+      }
+
+      // Jika tidak ada data siswa dengan email tersebut
+      if (!siswaData || !siswaData.nisn) {
+        console.log("⚠️ Tidak ada data siswa dengan email:", userEmail)
+        setMagangData(null)
+        setLoading(false)
+        return
+      }
+
+      console.log("✅ Data siswa ditemukan:", {
+        nisn: siswaData.nisn,
+        nama: siswaData.nama,
+        email: siswaData.email
+      })
+
+      // Jika ada, ambil data magang berdasarkan NISN siswa tersebut
+      const { data: magangRow, error: magangError } = await supabase
+        .from("magang")
+        .select("*, dudi:dudi_id(perusahaan, alamat)")
+        .eq("nisn", siswaData.nisn)
+        .order("id", { ascending: false })
+        .maybeSingle()
+
+      console.log("🔍 Query magang dengan NISN:", siswaData.nisn)
+      console.log("📊 Hasil query magang:", magangRow)
+      console.log("⚠️ Error query magang:", magangError)
+
+      if (magangError) {
+        console.error("❌ Error fetching magang data:", magangError)
+        setMagangData(null)
+        setLoading(false)
+        return
+      }
+
+      // Jika ada data magang, tampilkan
+      if (magangRow) {
+        console.log("✅ Data magang ditemukan, menampilkan data")
+        setMagangData({
+          ...magangRow,
+          siswa: siswaData
+        } as MagangData)
+      } else {
+        // Jika tidak ada data magang
+        console.log("⚠️ Tidak ada data magang untuk NISN:", siswaData.nisn)
+        setMagangData(null)
+      }
+    } catch (error) {
+      console.error("❌ Error fetching magang data:", error)
+      setMagangData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [session, status])
 
   useEffect(() => {
-    fetchMagangData()
+    // Tunggu sampai session ready
+    if (status === "loading") {
+      return
+    }
+    
+    if (status === "authenticated" && session?.user?.email) {
+      fetchMagangData()
+    }
 
     // Event listeners untuk update manual
     const handleMagangChanged = () => {
-      fetchMagangData()
+      console.log('🔄 Event: magang:changed triggered')
+      setTimeout(() => {
+        fetchMagangData()
+      }, 500)
+    }
+    const handleDudiChanged = () => {
+      console.log('🔄 Event: dudi:changed triggered')
+      setTimeout(() => {
+        fetchMagangData()
+      }, 500)
     }
     window.addEventListener("magang:changed", handleMagangChanged)
-    window.addEventListener("dudi:changed", handleMagangChanged)
+    window.addEventListener("dudi:changed", handleDudiChanged)
+
+    // Listen to NextAuth session changes via window events
+    const handleSessionChange = () => {
+      console.log('🔄 Session changed, refetching data...')
+      if (status === "authenticated" && session?.user?.email) {
+        fetchMagangData()
+      }
+    }
+    
+    // Listen for custom events that might indicate session changes
+    window.addEventListener("session:changed", handleSessionChange)
 
     // Supabase Realtime untuk update otomatis
     const channel = supabase
@@ -52,8 +250,11 @@ export function MagangSiswa() {
           table: 'magang' 
         }, 
         (payload) => {
-          console.log('Magang siswa changed:', payload)
-          fetchMagangData()
+          console.log('🔄 Realtime: Magang changed:', payload)
+          // Delay sedikit untuk memastikan data sudah ter-update di database
+          setTimeout(() => {
+            fetchMagangData()
+          }, 500)
         }
       )
       .on('postgres_changes', 
@@ -63,11 +264,30 @@ export function MagangSiswa() {
           table: 'siswa' 
         }, 
         (payload) => {
-          console.log('Siswa data changed:', payload)
-          fetchMagangData()
+          console.log('🔄 Realtime: Siswa data changed:', payload)
+          // Delay sedikit untuk memastikan data sudah ter-update di database
+          setTimeout(() => {
+            fetchMagangData()
+          }, 500)
         }
       )
-      .subscribe()
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'dudi' 
+        }, 
+        (payload) => {
+          console.log('🔄 Realtime: DUDI data changed:', payload)
+          // Delay sedikit untuk memastikan data sudah ter-update di database
+          setTimeout(() => {
+            fetchMagangData()
+          }, 500)
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status)
+      })
 
     // Polling backup setiap 30 detik
     const pollingInterval = setInterval(() => {
@@ -77,63 +297,11 @@ export function MagangSiswa() {
     return () => {
       window.removeEventListener("magang:changed", handleMagangChanged)
       window.removeEventListener("dudi:changed", handleMagangChanged)
+      window.removeEventListener("session:changed", handleSessionChange)
       supabase.removeChannel(channel)
       clearInterval(pollingInterval)
     }
-  }, [])
-
-  const fetchMagangData = async () => {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .schema("public")
-        .from("magang")
-        .select("*, dudi:dudi_id(perusahaan, alamat)")
-        .order("id", { ascending: false })
-
-      if (!error && data) {
-        // Cari data magang yang memiliki NISN yang sesuai
-        const magangRows = data as Array<{ nisn: number; dudi: { perusahaan: string | null; alamat: string | null } | null; [key: string]: any }>
-        const nisnList = Array.from(new Set(magangRows.map((r) => r.nisn).filter(Boolean))) as number[]
-        
-        if (nisnList.length > 0) {
-          // Ambil data siswa untuk semua NISN
-          const { data: siswaRows } = await supabase
-            .schema("public")
-            .from("siswa")
-            .select("nisn, nama, kelas, jurusan, email, no_hp, alamat")
-            .in("nisn", nisnList)
-          
-          // Ambil data magang terbaru (bukan hardcode nama tertentu)
-          // Hanya ambil data magang yang siswanya bernama "Virly Qoirul Annisa"
-          const filteredData = magangRows.find((magang) => {
-            const siswa = siswaRows?.find((s: { nisn: number; nama: string | null }) => s.nisn === magang.nisn)
-            return siswa && siswa.nama && siswa.nama.includes("Virly Qoirul Annisa")
-          })
-          
-          if (filteredData) {
-            const siswaData = siswaRows?.find((s: { nisn: number; nama: string | null; kelas: string | null; jurusan: string | null; email: string | null; no_hp: string | null; alamat: string | null }) => s.nisn === filteredData.nisn)
-            setMagangData({
-              ...filteredData,
-              siswa: siswaData
-            } as MagangData)
-          } else {
-            setMagangData(null)
-          }
-        } else {
-          setMagangData(null)
-        }
-      } else {
-        console.log("Tidak ada data magang")
-        setMagangData(null)
-      }
-    } catch (error) {
-      console.error("Error fetching magang data:", error)
-      setMagangData(null)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [fetchMagangData, status, session])
 
   if (loading) {
     return (
@@ -151,7 +319,7 @@ export function MagangSiswa() {
         <div className="rounded-lg border p-6">
           <h2 className="text-xl font-semibold mb-4">Status Magang Saya</h2>
           <p className="text-muted-foreground">
-            Belum ada data magang untuk Anda. Silakan hubungi guru pembimbing.
+            Belum ada data magang.
           </p>
         </div>
       </div>
