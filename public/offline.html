@@ -154,31 +154,24 @@
         }
       }
       
-      // Cek koneksi saat halaman load
+      // Cek koneksi saat halaman load - langsung redirect jika online
       (async () => {
-        // Jika navigator.onLine true, cek dengan fetch real
+        // Cek dulu dengan navigator.onLine
         if (navigator.onLine && !hasReloaded) {
+          // Langsung redirect tanpa delay jika navigator.onLine true
+          hasReloaded = true;
+          window.location.href = '/';
+          return;
+        }
+        
+        // Jika navigator.onLine false, cek dengan fetch real untuk memastikan
+        if (!hasReloaded) {
           const isActuallyOnline = await checkRealConnection();
           if (isActuallyOnline) {
             hasReloaded = true;
-            // Coba unregister service worker dulu jika ada
-            if ('serviceWorker' in navigator) {
-              try {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                if (registrations.length > 0) {
-                  // Unregister service worker yang bermasalah
-                  await Promise.all(
-                    registrations.map(reg => reg.unregister())
-                  );
-                }
-              } catch (e) {
-                console.warn('Error unregistering service worker:', e);
-              }
-            }
-            // Reload setelah unregister
-            setTimeout(() => {
-              window.location.href = '/';
-            }, 100);
+            // Langsung redirect jika ternyata online
+            window.location.href = '/';
+            return;
           }
         }
       })();

@@ -26,21 +26,21 @@ const withPWA = withPWAInit({
     clientsClaim: true,
     // Inject push notification handlers
     importScripts: isPWAEnabled ? ['/push-sw.js'] : [],
-    // Fallback standar Workbox untuk navigasi saat offline (hanya saat PWA aktif)
-    ...(isPWAEnabled && {
-      navigateFallback: '/offline.html',
-      // Jangan fallback navigasi untuk route yang sensitif (auth) atau sistem
-      navigateFallbackDenylist: [
-        /^\/_/,
-        /^\/_next/,
-        /\/api\//,
-        /\/magang\/detail\//,
-        /^\/login/,
-        /^\/register/,
-        /^\/forgot-password/,
-        /^\/reset-password/,
-      ],
-    }),
+    // Jangan gunakan navigateFallback karena akan selalu fallback bahkan saat online
+    // Gunakan handlerDidError di runtimeCaching untuk fallback yang lebih tepat
+    // ...(isPWAEnabled && {
+    //   navigateFallback: '/offline.html',
+    //   navigateFallbackDenylist: [
+    //     /^\/_/,
+    //     /^\/_next/,
+    //     /\/api\//,
+    //     /\/magang\/detail\//,
+    //     /^\/login/,
+    //     /^\/register/,
+    //     /^\/forgot-password/,
+    //     /^\/reset-password/,
+    //   ],
+    // }),
 
     // Precache offline.html saat PWA aktif
     ...(isPWAEnabled && {
@@ -82,13 +82,27 @@ const withPWA = withPWAInit({
               {
                 handlerDidError: async ({ request }) => {
                   // Hanya fallback ke offline.html jika benar-benar offline
-                  // Di service worker context, gunakan self.navigator atau cek dengan cara lain
-                  const isOnline = typeof self !== 'undefined' && self.navigator?.onLine !== false;
+                  // Cek dengan cara yang lebih reliable
+                  let isOnline = false;
+                  try {
+                    // Cek dengan fetch ke root untuk memastikan benar-benar offline
+                    const testResponse = await fetch('/', { 
+                      method: 'HEAD',
+                      cache: 'no-cache',
+                      mode: 'no-cors'
+                    });
+                    isOnline = true;
+                  } catch (e) {
+                    // Jika fetch gagal, cek navigator.onLine sebagai fallback
+                    isOnline = typeof self !== 'undefined' && self.navigator?.onLine === true;
+                  }
+                  
+                  // Hanya fallback ke offline.html jika benar-benar offline
                   if (!isOnline) {
                     return await caches.match('/offline.html') || Response.error();
                   }
-                  // Jika online tapi error, jangan fallback ke offline.html
-                  return Response.error();
+                  // Jika online tapi error, throw error agar browser handle sendiri
+                  throw new Error('Network error but device is online');
                 },
               },
             ],
