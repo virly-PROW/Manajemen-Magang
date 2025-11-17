@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -52,7 +52,7 @@ export function DudiTableGuru() {
     jumlah_siswa: number
   }>>([])
 
-  const fetchDudiData = async () => {
+  const fetchDudiData = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -94,7 +94,7 @@ export function DudiTableGuru() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const filteredDudi = useMemo(() => {
     if (!search) return dudiList
@@ -229,7 +229,33 @@ export function DudiTableGuru() {
 
   useEffect(() => {
     fetchDudiData()
-  }, [])
+
+    const channel = supabase
+      .channel("dudi-table-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "dudi" },
+        () => {
+          setTimeout(() => {
+            fetchDudiData()
+          }, 300)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "magang" },
+        () => {
+          setTimeout(() => {
+            fetchDudiData()
+          }, 300)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [fetchDudiData])
 
   if (loading) {
     return (

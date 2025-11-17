@@ -2,7 +2,8 @@ import type { NextConfig } from "next"
 import withPWAInit from "@ducanh2912/next-pwa"
 
 const isDev = process.env.NODE_ENV === 'development'
-const enablePWAInDev = process.env.ENABLE_PWA === 'true'
+const enablePWAInDev =
+  (process.env.ENABLE_PWA ?? process.env.NEXT_PUBLIC_ENABLE_PWA) === 'true'
 
 const isPWAEnabled = !(isDev && !enablePWAInDev)
 

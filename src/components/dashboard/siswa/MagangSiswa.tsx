@@ -29,10 +29,10 @@ type MagangData = {
   jenis_kelamin: string | null
 }
 
-export function MagangSiswa() {
+export function MagangSiswa() { 
   const [magangData, setMagangData] = useState<MagangData | null>(null)
   const [loading, setLoading] = useState(true)
-  const { data: session, status } = useSession()
+  const { data: session, status } = useSession() 
 
   const fetchMagangData = useCallback(async () => {
     try {
@@ -40,7 +40,7 @@ export function MagangSiswa() {
       
       // Ambil email user yang login dari NextAuth
       if (status === "loading") {
-        console.log("⏳ Session masih loading...")
+        console.log("⏳ Session masih loading...") 
         setLoading(false)
         return
       }
