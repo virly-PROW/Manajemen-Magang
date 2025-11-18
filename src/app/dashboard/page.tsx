@@ -9,6 +9,7 @@ import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DashboardSiswa } from "@/components/dashboard/siswa/DashboardSiswa"
 import { DashboardGuru } from "@/components/dashboard/guru/DashboardGuru"
 import { SidebarInset } from "@/components/ui/sidebar"
+import { DashboardSkeleton } from "@/components/skeletons/PageSkeleton"
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
@@ -20,20 +21,26 @@ export default function DashboardPage() {
     }
   }, [status, router])
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Memuat...</p>
-        </div>
-      </div>
-    )
-  }
-
   if (status === "unauthenticated") {
     return null
   }
+
+  if (status === "loading") {
+    return (
+      <>
+        <AppSidebar variant="inset" />
+        <SidebarInset>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              <DashboardSkeleton />
+            </div>
+          </div>
+        </SidebarInset>
+      </>
+    )
+  }
+
   return (
     <>
       <AppSidebar variant="inset" />

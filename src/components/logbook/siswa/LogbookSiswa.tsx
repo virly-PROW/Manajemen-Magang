@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, Plus, Eye, Edit, Trash2, CheckCircle, Clock, XCircle, User, Search } from "lucide-react"
 import { toast } from "sonner"
 import { createNotificationClient } from "@/lib/notificationClient"
+import { TableSkeleton } from "@/components/skeletons/PageSkeleton"
 
 interface LogbookEntry {
   id: number
@@ -536,10 +537,7 @@ export function LogbookSiswa() {
   if (loading) {
     return (
       <div className="p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-gray-200 rounded"></div>
-          <div className="h-96 bg-gray-200 rounded"></div>
-        </div>
+        <TableSkeleton rows={5} />
       </div>
     )
   }

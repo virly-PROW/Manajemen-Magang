@@ -18,10 +18,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Cari user di database
+          // Cari user di database - TAMBAHKAN image
           const { data: user, error } = await supabase
             .from("users")
-            .select("id, email, password_hash, name, provider")
+            .select("id, email, password_hash, name, image, provider")
             .eq("email", credentials.email)
             .eq("provider", "manual")
             .single()
@@ -40,6 +40,7 @@ export const authOptions: NextAuthOptions = {
             id: user.id,
             email: user.email,
             name: user.name,
+            image: user.image || null,
           }
         } catch (error) {
           console.error("Auth error:", error)
@@ -70,6 +71,7 @@ export const authOptions: NextAuthOptions = {
               .insert({
                 email: user.email!,
                 name: user.name || user.email!.split("@")[0],
+                image: user.image || null,
                 provider: "google",
                 password_hash: null,
               })
@@ -100,15 +102,58 @@ export const authOptions: NextAuthOptions = {
       }
       return true
     },
-    async jwt({ token, user, account }) {
-      if (user) {
+    
+    // ✅ JWT Callback - Handle trigger "update" dan session dari DB
+    async jwt({ token, user, account, trigger, session }) {
+      // Saat pertama kali login
+      if (account && user) {
         token.id = user.id
+        token.name = user.name
+        token.email = user.email
+        token.image = user.image
+        token.picture = user.image // untuk compatibility
       }
+      
+      // ✅ CRITICAL: Saat ada update() dipanggil dari client
+      if (trigger === "update" && session?.user) {
+        // Ambil data terbaru dari database
+        try {
+          const { data: userData, error } = await supabase
+            .from("users")
+            .select("id, email, name, image")
+            .eq("email", token.email)
+            .single()
+
+          if (!error && userData) {
+            // Update token dengan data dari database
+            token.name = userData.name
+            token.email = userData.email
+            token.image = userData.image
+            token.picture = userData.image
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error)
+        }
+        
+        // Juga merge dengan data yang dikirim dari client (jika ada)
+        if (session.user.name) token.name = session.user.name
+        if (session.user.email) token.email = session.user.email
+        if (session.user.image) {
+          token.image = session.user.image
+          token.picture = session.user.image
+        }
+      }
+      
       return token
     },
+    
+    // ✅ Session Callback - Pass data dari token ke session
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string
+        session.user.name = token.name as string
+        session.user.email = token.email as string
+        session.user.image = token.image as string || token.picture as string
       }
       return session
     },
@@ -126,5 +171,3 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST }
-
-

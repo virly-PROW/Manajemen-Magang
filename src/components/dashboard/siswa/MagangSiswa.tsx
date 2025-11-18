@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { IconUser, IconBuilding, IconCalendar, IconMapPin } from "@tabler/icons-react"
 import { useSession } from "next-auth/react"
 import supabase from "@/lib/supabaseClient"
+import { TableSkeleton } from "@/components/skeletons/PageSkeleton"
 
 type MagangData = {
   id: number
@@ -306,9 +307,7 @@ export function MagangSiswa() {
   if (loading) {
     return (
       <div className="px-4 lg:px-6">
-        <div className="rounded-lg border p-6">
-          <p className="text-muted-foreground">Memuat data magang...</p>
-        </div>
+        <TableSkeleton rows={3} />
       </div>
     )
   }

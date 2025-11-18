@@ -23,7 +23,7 @@ export default withAuth(
     if (pathname.startsWith("/magang/detail/")) {
       return NextResponse.next()
     }
-    
+
     // Route siswa dengan ID bisa diakses tanpa autentikasi (public)
     // Pattern: /siswa/[angka] (hanya angka, tidak ada path lain)
     if (/^\/siswa\/\d+$/.test(pathname)) {

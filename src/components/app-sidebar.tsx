@@ -21,7 +21,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-import { useRole } from "@/contexts/RoleContext" // ✅ ambil context
+import { useRole } from "@/contexts/RoleContext"
 import { useSession } from "next-auth/react"
 
 // Dynamic import untuk menghindari hydration mismatch
@@ -84,8 +84,8 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { role } = useRole() // ✅ ambil role global
-  const { data: session } = useSession()
+  const { role } = useRole()
+  const { data: session, status } = useSession()
   const navItems = role === "guru" ? data.navMainGuru : data.navMainSiswa
   
   // Use session data if available, otherwise use default
@@ -121,7 +121,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       {/* Sidebar Footer */}
       <SidebarFooter>
-        <NavUser user={user} />
+        {/* ✅ Tambahkan key untuk force re-render saat data berubah */}
+        <NavUser 
+          key={`${user.name}-${user.email}-${user.avatar}`} 
+          user={user} 
+        />
       </SidebarFooter>
     </Sidebar>
   )

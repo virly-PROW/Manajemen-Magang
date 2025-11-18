@@ -30,3 +30,6 @@ WHERE table_schema = 'public'
   AND table_name = 'users'
   AND column_name = 'image';
 
+
+
+

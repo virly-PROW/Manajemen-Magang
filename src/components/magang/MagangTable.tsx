@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import { createNotificationClient } from "@/lib/notificationClient"
 import { Users, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, QrCode, Copy, Check, Download } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
+import { TableSkeleton } from "@/components/skeletons/PageSkeleton"
 
 type MagangRow = {
   id: number
@@ -752,10 +753,7 @@ export default function MagangTable() {
   if (loading) {
     return (
       <div className="p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-gray-200 rounded"></div>
-          <div className="h-96 bg-gray-200 rounded"></div>
-        </div>
+        <TableSkeleton rows={5} />
       </div>
     )
   }

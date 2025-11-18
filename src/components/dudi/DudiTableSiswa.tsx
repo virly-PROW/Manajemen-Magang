@@ -16,6 +16,7 @@ import { DudiRegistrationForm } from "./DudiRegistrationForm"
 
 // icons
 import { MapPin, User, Mail, Phone, Search } from "lucide-react"
+import { TableSkeleton } from "@/components/skeletons/PageSkeleton"
 
 type DudiWithStats = {
   id: number
@@ -244,14 +245,7 @@ export function DudiTableSiswa({ nisn }: DudiTableSiswaProps) {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded-lg"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-48 bg-gray-200 rounded-xl"></div>
-            ))}
-          </div>
-        </div>
+        <TableSkeleton rows={6} />
       </div>
     )
   }
