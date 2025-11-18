@@ -432,7 +432,7 @@ export default function MagangTable() {
   const handleCopyLink = async () => {
     if (!selectedRow) return
     
-    const link = `${window.location.origin}/magang/detail/${selectedRow.id}`
+    const link = `${window.location.origin}/siswa/${selectedRow.id}`
     
     try {
       await navigator.clipboard.writeText(link)
@@ -1307,7 +1307,7 @@ export default function MagangTable() {
             <div className="flex flex-col items-center space-y-4 py-4">
               {/* Generate Link */}
               {(() => {
-                const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/magang/detail/${selectedRow.id}`
+                const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/siswa/${selectedRow.id}`
                 
                 return (
                   <>

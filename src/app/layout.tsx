@@ -45,7 +45,8 @@ export default function RootLayout({
     pathname?.startsWith("/register") || 
     pathname?.startsWith("/forgot-password") ||
     pathname?.startsWith("/reset-password") ||
-    pathname?.startsWith("/magang/detail/"); 
+    pathname?.startsWith("/magang/detail/") ||
+    /^\/siswa\/\d+$/.test(pathname || "");
 
   useEffect(() => {
     loadFonts()

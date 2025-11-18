@@ -32,7 +32,7 @@ type MagangData = {
   status_pendaftaran: string | null
 }
 
-export default function MagangDetailPage() {
+export default function SiswaDetailPage() {
   const params = useParams()
   const magangId = params?.id as string
   const [magangData, setMagangData] = useState<MagangData | null>(null)
@@ -242,6 +242,5 @@ export default function MagangDetailPage() {
     </div>
   )
 }
-
 
 

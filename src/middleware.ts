@@ -23,6 +23,12 @@ export default withAuth(
     if (pathname.startsWith("/magang/detail/")) {
       return NextResponse.next()
     }
+    
+    // Route siswa dengan ID bisa diakses tanpa autentikasi (public)
+    // Pattern: /siswa/[angka] (hanya angka, tidak ada path lain)
+    if (/^\/siswa\/\d+$/.test(pathname)) {
+      return NextResponse.next()
+    }
 
     return NextResponse.next()
   },
@@ -37,7 +43,8 @@ export default withAuth(
           pathname.startsWith("/register") ||
           pathname.startsWith("/forgot-password") ||
           pathname.startsWith("/reset-password") ||
-          pathname.startsWith("/magang/detail/")
+          pathname.startsWith("/magang/detail/") ||
+          /^\/siswa\/\d+$/.test(pathname)
         ) {
           return true
         }
