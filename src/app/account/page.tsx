@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { IconUser, IconCamera, IconLoader2, IconLock } from "@tabler/icons-react"
 import supabase from "@/lib/supabaseClient"
@@ -89,6 +91,10 @@ export default function AccountPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   // Tambahkan state untuk force refresh gambar
   const [imageKey, setImageKey] = useState(Date.now())
+  const [compressImage, setCompressImage] = useState(true)
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -117,30 +123,46 @@ export default function AccountPage() {
       return
     }
 
-    // Validasi ukuran file (max 100MB sebelum kompresi)
-    const MAX_SIZE = 100 * 1024 * 1024 // 100MB
-    if (file.size > MAX_SIZE) {
-      toast.error("Ukuran file terlalu besar. Maksimal 100MB")
-      return
+    // Simpan file dan buat preview
+    setSelectedFile(file)
+    
+    // Buat preview URL
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result as string)
+      setIsImageModalOpen(true)
     }
+    reader.onerror = () => {
+      toast.error("Gagal membaca file")
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleUploadImage = async () => {
+    if (!selectedFile) return
 
     try {
       setUploading(true)
+      setIsImageModalOpen(false)
       
-      // Kompresi gambar
-      const options = {
-        maxSizeMB: 25, // Target ukuran setelah kompresi (25MB)
-        maxWidthOrHeight: 1920, // Resolusi maksimal
-        useWebWorker: true,
-        fileType: file.type,
-      }
+      let processedFile: File = selectedFile
 
-      toast.info("Mengompresi gambar...")
-      const compressedFile = await imageCompression(file, options)
+      // Kompresi gambar jika checkbox dicentang
+      if (compressImage) {
+        const options = {
+          maxSizeMB: 2, // Target ukuran setelah kompresi (2MB untuk foto profil)
+          maxWidthOrHeight: 1920, // Resolusi maksimal
+          useWebWorker: true,
+          fileType: selectedFile.type,
+        }
+
+        toast.info("Mengompresi gambar...")
+        processedFile = await imageCompression(selectedFile, options)
+      }
       
       // Konversi ke WebP
       toast.info("Mengkonversi ke WebP...")
-      const webpFile = await convertToWebP(compressedFile)
+      const webpFile = await convertToWebP(processedFile)
       
       // Tampilkan preview dari file yang sudah dikonversi
       const previewPromise = new Promise<string>((resolve) => {
@@ -295,6 +317,17 @@ export default function AccountPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
+      setSelectedFile(null)
+      setPreviewUrl(null)
+    }
+  }
+
+  const handleCancelImageModal = () => {
+    setIsImageModalOpen(false)
+    setSelectedFile(null)
+    setPreviewUrl(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
@@ -516,7 +549,7 @@ export default function AccountPage() {
                           </AvatarFallback>
                         </Avatar>
                         
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-3 w-full">
                           <input
                             ref={fileInputRef}
                             type="file"
@@ -675,7 +708,70 @@ export default function AccountPage() {
           </div>
         </div>
       </SidebarInset>
-    </>
 
+      {/* Modal Preview Image */}
+      <Dialog open={isImageModalOpen} onOpenChange={setIsImageModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Preview Foto Profil</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Preview Image */}
+            {previewUrl && (
+              <div className="flex justify-center">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="max-h-64 w-auto rounded-lg object-contain"
+                />
+              </div>
+            )}
+
+            {/* File Info */}
+
+            {/* Checkbox untuk compress image */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="compress-image-modal"
+                checked={compressImage}
+                onCheckedChange={(checked) => setCompressImage(checked === true)}
+                disabled={uploading}
+              />
+              <Label
+                htmlFor="compress-image-modal"
+                className="text-sm font-normal cursor-pointer"
+              >
+                Kompresi gambar
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelImageModal}
+              disabled={uploading}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleUploadImage}
+              disabled={uploading}
+              className="gap-2"
+            >
+              {uploading ? (
+                <>
+                  <IconLoader2 className="h-4 w-4 animate-spin" />
+                  Mengupload...
+                </>
+              ) : (
+                "Upload"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

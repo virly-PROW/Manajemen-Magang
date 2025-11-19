@@ -41,11 +41,11 @@ export async function sendPushNotification(
   try {
     const { role, title, message, link } = params
 
-    // Get all subscriptions for this role
+    // Get all subscriptions (send to all users regardless of their subscription role)
+    // This is because users can switch roles in the app and should receive notifications for both roles
     const { data: subscriptions, error: fetchError } = await supabase
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth")
-      .eq("role", role)
 
     if (fetchError) {
       console.error("Error fetching subscriptions:", fetchError)
