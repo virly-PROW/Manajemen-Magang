@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { createNotificationClient } from "@/lib/notificationClient"
 import { Users, Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, QrCode, Copy, Check, Download } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { TableSkeleton } from "@/components/skeletons/PageSkeleton"
@@ -593,23 +592,49 @@ export default function MagangTable() {
       const oldStatusPendaftaran = editing.status_pendaftaran
       const oldStatus = editing.status
       
-      // Notifikasi untuk siswa: diterima/ditolak magang
+      // Notifikasi untuk semua siswa: diterima/ditolak magang
       if (newStatusPendaftaran === "diterima" && oldStatusPendaftaran === "menunggu") {
-        await createNotificationClient({
-          nisn: editing.nisn,
-          role: "siswa",
-          title: "Pendaftaran Magang Diterima",
-          message: `Pendaftaran magang Anda telah diterima. Status: ${editing.dudi?.perusahaan || "Magang"}`,
-          link: "/magang",
-        })
+        try {
+          const notificationResponse = await fetch("/api/notifications/create-for-all-siswa", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Pendaftaran Magang Diterima",
+              message: `Pendaftaran magang telah diterima. Status: ${editing.dudi?.perusahaan || "Magang"}`,
+              link: "/magang",
+            }),
+          })
+          const notificationData = await notificationResponse.json()
+          if (notificationResponse.ok && !notificationData.skipped) {
+            window.dispatchEvent(new CustomEvent("notification:created"))
+          }
+        } catch (error) {
+          console.error("Error creating notification:", error)
+          // Don't fail the update if notification fails
+        }
       } else if (newStatusPendaftaran === "ditolak" && oldStatusPendaftaran !== "ditolak") {
-        await createNotificationClient({
-          nisn: editing.nisn,
-          role: "siswa",
-          title: "Pendaftaran Magang Ditolak",
-          message: `Maaf, pendaftaran magang Anda ditolak. Silakan daftar ke DUDI lain.`,
-          link: "/dudi",
-        })
+        try {
+          const notificationResponse = await fetch("/api/notifications/create-for-all-siswa", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Pendaftaran Magang Ditolak",
+              message: `Maaf, pendaftaran magang ditolak. Silakan daftar ke DUDI lain.`,
+              link: "/dudi",
+            }),
+          })
+          const notificationData = await notificationResponse.json()
+          if (notificationResponse.ok && !notificationData.skipped) {
+            window.dispatchEvent(new CustomEvent("notification:created"))
+          }
+        } catch (error) {
+          console.error("Error creating notification:", error)
+          // Don't fail the update if notification fails
+        }
       }
       
       // Notifikasi untuk guru: siswa selesai magang

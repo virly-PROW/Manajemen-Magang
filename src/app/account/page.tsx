@@ -479,195 +479,195 @@ export default function AccountPage() {
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Foto Profil */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <IconUser className="h-5 w-5" />
-                      Foto Profil
-                    </CardTitle>
-                    <CardDescription>
-                      Upload foto profil Anda. Gambar akan dikompresi dan dikonversi ke format WebP otomatis.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex flex-col items-center gap-4">
-                      {/* Tambahkan key prop untuk force re-render */}
-                      <Avatar className="h-32 w-32" key={imageKey}>
-                        <AvatarImage 
-                          src={
-                            previewImage 
-                              ? previewImage 
-                              : userData.image 
-                                ? `${userData.image}${userData.image.includes('?') ? '&' : '?'}t=${imageKey}` 
-                                : ''
-                          } 
-                          alt={userData.name || "Profile"}
-                          onError={(e) => {
-                            console.error("Error loading image:", e.currentTarget.src)
-                            // Jika error, coba tanpa cache buster
-                            if (userData.image && e.currentTarget.src.includes('?t=')) {
-                              e.currentTarget.src = userData.image
-                            }
-                          }}
-                          onLoad={() => {
-                            console.log("Image loaded successfully")
-                          }}
-                        />
-                        <AvatarFallback className="text-2xl">
-                          {userData.name?.charAt(0).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex flex-col items-center gap-2">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageSelect}
-                          className="hidden"
-                          disabled={uploading}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploading}
-                          className="gap-2"
-                        >
-                          {uploading ? (
-                            <>
-                              <IconLoader2 className="h-4 w-4 animate-spin" />
-                              Mengupload...
-                            </>
-                          ) : (
-                            <>
-                              <IconCamera className="h-4 w-4" />
-                              Pilih Foto
-                            </>
-                          )}
-                        </Button>
-                        <p className="text-xs text-gray-500 text-center max-w-xs">
-                          Format: JPG, PNG, GIF. Maksimal 100MB (akan dikompresi dan dikonversi ke WebP ~25MB)
-                        </p>
+                {/* Kolom Kiri: Foto Profil + Informasi Akun */}
+                <div className="flex flex-col gap-6">
+                  {/* Foto Profil */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <IconUser className="h-5 w-5" />
+                        Foto Profil
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex flex-col items-center gap-4">
+                        <Avatar className="h-40 w-40" key={imageKey}>
+                          <AvatarImage 
+                            src={
+                              previewImage 
+                                ? previewImage 
+                                : userData.image 
+                                  ? `${userData.image}${userData.image.includes('?') ? '&' : '?'}t=${imageKey}` 
+                                  : ''
+                            } 
+                            alt={userData.name || "Profile"}
+                            onError={(e) => {
+                              console.error("Error loading image:", e.currentTarget.src)
+                              if (userData.image && e.currentTarget.src.includes('?t=')) {
+                                e.currentTarget.src = userData.image
+                              }
+                            }}
+                            onLoad={() => {
+                              console.log("Image loaded successfully")
+                            }}
+                          />
+                          <AvatarFallback className="text-3xl">
+                            {userData.name?.charAt(0).toUpperCase() || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        <div className="flex flex-col items-center gap-2">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                            disabled={uploading}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="gap-2"
+                          >
+                            {uploading ? (
+                              <>
+                                <IconLoader2 className="h-4 w-4 animate-spin" />
+                                Mengupload...
+                              </>
+                            ) : (
+                              <>
+                                <IconCamera className="h-4 w-4" />
+                                Pilih Foto
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
-                {/* Informasi Akun */}
+                  {/* Informasi Akun */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <IconUser className="h-5 w-5" />
+                        Informasi Akun
+                      </CardTitle>
+                      <CardDescription>
+                        Perbarui informasi akun Anda
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nama</Label>
+                        <Input
+                          id="name"
+                          value={formData.name}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, name: e.target.value }))
+                          }
+                          placeholder="Masukkan nama Anda"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, email: e.target.value }))
+                          }
+                          placeholder="Masukkan email Anda"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleSave}
+                        disabled={saving || (formData.name === userData.name && formData.email === userData.email)}
+                        className="w-full gap-2"
+                      >
+                        {saving ? (
+                          <>
+                            <IconLoader2 className="h-4 w-4 animate-spin" />
+                            Menyimpan...
+                          </>
+                        ) : (
+                          "Simpan Perubahan"
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Kolom Kanan: Password */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <IconUser className="h-5 w-5" />
-                      Informasi Akun
+                      <IconLock className="h-5 w-5" />
+                      Ubah Password
                     </CardTitle>
                     <CardDescription>
-                      Perbarui informasi akun Anda
+                      Ubah password akun Anda untuk keamanan
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Nama</Label>
+                      <Label htmlFor="currentPassword">Password Saat Ini</Label>
                       <Input
-                        id="name"
-                        value={formData.name}
+                        id="currentPassword"
+                        type="password"
+                        value={passwordData.currentPassword}
                         onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, name: e.target.value }))
+                          setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))
                         }
-                        placeholder="Masukkan nama Anda"
+                        placeholder="Masukkan password saat ini"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="newPassword">Password Baru</Label>
                       <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
+                        id="newPassword"
+                        type="password"
+                        value={passwordData.newPassword}
                         onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, email: e.target.value }))
+                          setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))
                         }
-                        placeholder="Masukkan email Anda"
+                        placeholder="Masukkan password baru (min. 6 karakter)"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) =>
+                          setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                        }
+                        placeholder="Ulangi password baru"
                       />
                     </div>
                     <Button
-                      onClick={handleSave}
-                      disabled={saving || (formData.name === userData.name && formData.email === userData.email)}
+                      onClick={handleChangePassword}
+                      disabled={changingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
                       className="w-full gap-2"
+                      variant="outline"
                     >
-                      {saving ? (
+                      {changingPassword ? (
                         <>
                           <IconLoader2 className="h-4 w-4 animate-spin" />
-                          Menyimpan...
+                          Mengubah...
                         </>
                       ) : (
-                        "Simpan Perubahan"
+                        <>
+                          <IconLock className="h-4 w-4" />
+                          Ubah Password
+                        </>
                       )}
                     </Button>
-
-                    {/* Password Section */}
-                    <div className="pt-4 border-t">
-                      <div className="flex items-center gap-2 mb-4">
-                        <IconLock className="h-4 w-4" />
-                        <Label className="text-base font-semibold">Ubah Password</Label>
-                      </div>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="currentPassword">Password Saat Ini</Label>
-                          <Input
-                            id="currentPassword"
-                            type="password"
-                            value={passwordData.currentPassword}
-                            onChange={(e) =>
-                              setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))
-                            }
-                            placeholder="Masukkan password saat ini"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="newPassword">Password Baru</Label>
-                          <Input
-                            id="newPassword"
-                            type="password"
-                            value={passwordData.newPassword}
-                            onChange={(e) =>
-                              setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))
-                            }
-                            placeholder="Masukkan password baru (min. 6 karakter)"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
-                          <Input
-                            id="confirmPassword"
-                            type="password"
-                            value={passwordData.confirmPassword}
-                            onChange={(e) =>
-                              setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))
-                            }
-                            placeholder="Ulangi password baru"
-                          />
-                        </div>
-                        <Button
-                          onClick={handleChangePassword}
-                          disabled={changingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
-                          className="w-full gap-2"
-                          variant="outline"
-                        >
-                          {changingPassword ? (
-                            <>
-                              <IconLoader2 className="h-4 w-4 animate-spin" />
-                              Mengubah...
-                            </>
-                          ) : (
-                            <>
-                              <IconLock className="h-4 w-4" />
-                              Ubah Password
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -676,5 +676,6 @@ export default function AccountPage() {
         </div>
       </SidebarInset>
     </>
+
   )
 }

@@ -8,6 +8,7 @@ import { RoleProvider } from "@/contexts/RoleContext"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { ClientHead } from "@/components/ClientHead"
 import { Providers } from "@/app/providers"
+import { SlideDownNotification } from "@/components/SlideDownNotification"
 
 // Load fonts dynamically to avoid blocking
 const loadFonts = () => {
@@ -118,6 +119,7 @@ export default function RootLayout({
         <ClientHead />
         <Providers>
           <RoleProvider>
+            <SlideDownNotification />
             {isAuthPage ? (
               // Halaman login/register — tanpa sidebar, biar bisa center
               <>

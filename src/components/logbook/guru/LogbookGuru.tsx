@@ -12,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, User, CheckCircle, XCircle, Clock, Edit, MessageSquare, Eye, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
-import { createNotificationClient } from "@/lib/notificationClient"
 import { TableSkeleton } from "@/components/skeletons/PageSkeleton"
 
 interface LogbookEntry {
@@ -240,24 +239,50 @@ export function LogbookGuru() {
 
       if (error) throw error
 
-      // Create notifications for student
+      // Create notifications for all students
       if (currentLogbook && oldStatus !== form.status) {
         if (form.status === "disetujui") {
-          await createNotificationClient({
-            nisn: currentLogbook.nisn,
-            role: "siswa",
-            title: "Logbook Disetujui",
-            message: `Logbook Anda pada tanggal ${new Date(currentLogbook.tanggal).toLocaleDateString("id-ID")} telah disetujui.`,
-            link: "/logbook",
-          })
+          try {
+            const notificationResponse = await fetch("/api/notifications/create-for-all-siswa", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                title: "Logbook Disetujui",
+                message: `Logbook pada tanggal ${new Date(currentLogbook.tanggal).toLocaleDateString("id-ID")} telah disetujui.`,
+                link: "/logbook",
+              }),
+            })
+            const notificationData = await notificationResponse.json()
+            if (notificationResponse.ok && !notificationData.skipped) {
+              window.dispatchEvent(new CustomEvent("notification:created"))
+            }
+          } catch (error) {
+            console.error("Error creating notification:", error)
+            // Don't fail the logbook update if notification fails
+          }
         } else if (form.status === "ditolak") {
-          await createNotificationClient({
-            nisn: currentLogbook.nisn,
-            role: "siswa",
-            title: "Logbook Ditolak",
-            message: `Logbook Anda pada tanggal ${new Date(currentLogbook.tanggal).toLocaleDateString("id-ID")} ditolak.${form.komentar_pembimbing ? ` Alasan: ${form.komentar_pembimbing}` : ""}`,
-            link: "/logbook",
-          })
+          try {
+            const notificationResponse = await fetch("/api/notifications/create-for-all-siswa", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                title: "Logbook Ditolak",
+                message: `Logbook pada tanggal ${new Date(currentLogbook.tanggal).toLocaleDateString("id-ID")} ditolak.${form.komentar_pembimbing ? ` Alasan: ${form.komentar_pembimbing}` : ""}`,
+                link: "/logbook",
+              }),
+            })
+            const notificationData = await notificationResponse.json()
+            if (notificationResponse.ok && !notificationData.skipped) {
+              window.dispatchEvent(new CustomEvent("notification:created"))
+            }
+          } catch (error) {
+            console.error("Error creating notification:", error)
+            // Don't fail the logbook update if notification fails
+          }
         }
       }
 
