@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { IconUser, IconCamera, IconLoader2, IconLock } from "@tabler/icons-react"
+import { IconUser, IconCamera, IconLoader2, IconLock, IconX } from "@tabler/icons-react"
 import supabase from "@/lib/supabaseClient"
 import imageCompression from "browser-image-compression"
 import { AccountPageSkeleton } from "@/components/skeletons/PageSkeleton"
@@ -89,12 +89,14 @@ export default function AccountPage() {
   })
   const [changingPassword, setChangingPassword] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-  // Tambahkan state untuk force refresh gambar
   const [imageKey, setImageKey] = useState(Date.now())
   const [compressImage, setCompressImage] = useState(true)
   const [isImageModalOpen, setIsImageModalOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // State untuk full screen preview foto profil
+  const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -150,8 +152,8 @@ export default function AccountPage() {
       // Kompresi gambar jika checkbox dicentang
       if (compressImage) {
         const options = {
-          maxSizeMB: 2, // Target ukuran setelah kompresi (2MB untuk foto profil)
-          maxWidthOrHeight: 1920, // Resolusi maksimal
+          maxSizeMB: 2,
+          maxWidthOrHeight: 1920,
           useWebWorker: true,
           fileType: selectedFile.type,
         }
@@ -178,17 +180,14 @@ export default function AccountPage() {
         reader.readAsDataURL(webpFile)
       })
       
-      // Tunggu preview ter-load
       await previewPromise
 
-      // Upload ke Supabase Storage
       const userEmail = session?.user?.email
       if (!userEmail) {
         toast.error("Email tidak ditemukan")
         return
       }
 
-      // Cari user berdasarkan email untuk mendapatkan UUID yang benar
       const { data: userDataFromDb, error: userError } = await supabase
         .from("users")
         .select("id")
@@ -202,14 +201,13 @@ export default function AccountPage() {
       }
 
       const userId = userDataFromDb.id
-      // Gunakan timestamp untuk nama file yang unique
       const timestamp = Date.now()
       const fileName = `profile_${userId}_${timestamp}.webp`
       const filePath = `profiles/${fileName}`
 
       toast.info("Mengupload gambar...")
       
-      // Hapus file lama jika ada (dari storage logbook_media)
+      // Hapus file lama jika ada
       if (userData.image && userData.image.includes('logbook_media')) {
         try {
           const urlParts = userData.image.split('/')
@@ -247,7 +245,6 @@ export default function AccountPage() {
         return
       }
 
-      // Dapatkan public URL (tanpa cache buster, simpan clean URL di database)
       const { data: urlData } = supabase.storage
         .from("logbook_media")
         .getPublicUrl(filePath)
@@ -256,7 +253,6 @@ export default function AccountPage() {
 
       console.log("Image URL baru:", imageUrl)
 
-      // Update database
       const { error: updateError, data: updateData } = await supabase
         .from("users")
         .update({ image: imageUrl })
@@ -283,7 +279,6 @@ export default function AccountPage() {
 
       console.log("Database updated successfully:", updateData)
 
-      // Update session dengan data baru
       await update({
         ...session,
         user: {
@@ -292,19 +287,15 @@ export default function AccountPage() {
         },
       })
 
-      // Update state dengan gambar baru
       setUserData((prev) => ({ ...prev, image: imageUrl }))
       
-      // Set preview dengan URL baru (dengan cache buster untuk force refresh)
       const imageUrlWithCache = `${imageUrl}?t=${timestamp}`
       setPreviewImage(imageUrlWithCache)
       
-      // Force refresh gambar dengan mengubah key
       setImageKey(timestamp)
       
       toast.success("Foto profil berhasil diupdate!")
       
-      // Refresh halaman setelah 2 detik untuk memastikan semua ter-update
       setTimeout(() => {
         router.refresh()
       }, 2000)
@@ -331,6 +322,16 @@ export default function AccountPage() {
     }
   }
 
+  const handleAvatarClick = () => {
+    const url = previewImage || userData.image || null
+    if (!url) {
+      toast.info("Belum ada foto profil untuk ditampilkan")
+      return
+    }
+    setAvatarPreviewUrl(url)
+    setIsAvatarPreviewOpen(true)
+  }
+
   const handleSave = async () => {
     if (!formData.name.trim()) {
       toast.error("Nama tidak boleh kosong")
@@ -351,7 +352,6 @@ export default function AccountPage() {
     try {
       setSaving(true)
 
-      // Cari user berdasarkan email untuk mendapatkan UUID yang benar
       const { data: userDataFromDb, error: userError } = await supabase
         .from("users")
         .select("id")
@@ -366,7 +366,6 @@ export default function AccountPage() {
 
       const userId = userDataFromDb.id
 
-      // Update database
       const { error: updateError } = await supabase
         .from("users")
         .update({
@@ -381,7 +380,6 @@ export default function AccountPage() {
         return
       }
 
-      // Update session
       await update({
         ...session,
         user: {
@@ -431,7 +429,6 @@ export default function AccountPage() {
     try {
       setChangingPassword(true)
 
-      // Cari user berdasarkan email untuk mendapatkan UUID yang benar
       const { data: userDataFromDb, error: userError } = await supabase
         .from("users")
         .select("id")
@@ -446,7 +443,6 @@ export default function AccountPage() {
 
       const userId = userDataFromDb.id
 
-      // Verifikasi password lama
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: {
@@ -466,7 +462,6 @@ export default function AccountPage() {
         return
       }
 
-      // Reset form
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -505,7 +500,7 @@ export default function AccountPage() {
         <SiteHeaderAccount />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-1">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6 w-full max-w-6xl mx-auto">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Account Settings</h1>
                 <p className="text-gray-600">Kelola informasi akun dan foto profil Anda</p>
@@ -524,30 +519,36 @@ export default function AccountPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex flex-col items-center gap-4">
-                        <Avatar className="h-40 w-40" key={imageKey}>
-                          <AvatarImage 
-                            src={
-                              previewImage 
-                                ? previewImage 
-                                : userData.image 
-                                  ? `${userData.image}${userData.image.includes('?') ? '&' : '?'}t=${imageKey}` 
-                                  : ''
-                            } 
-                            alt={userData.name || "Profile"}
-                            onError={(e) => {
-                              console.error("Error loading image:", e.currentTarget.src)
-                              if (userData.image && e.currentTarget.src.includes('?t=')) {
-                                e.currentTarget.src = userData.image
-                              }
-                            }}
-                            onLoad={() => {
-                              console.log("Image loaded successfully")
-                            }}
-                          />
-                          <AvatarFallback className="text-3xl">
-                            {userData.name?.charAt(0).toUpperCase() || "U"}
-                          </AvatarFallback>
-                        </Avatar>
+                        <button
+                          type="button"
+                          onClick={handleAvatarClick}
+                          className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 rounded-full transition-transform hover:scale-105"
+                        >
+                          <Avatar className="h-32 w-32 sm:h-40 sm:w-40" key={imageKey}>
+                            <AvatarImage 
+                              src={
+                                previewImage 
+                                  ? previewImage 
+                                  : userData.image 
+                                    ? `${userData.image}${userData.image.includes('?') ? '&' : '?'}t=${imageKey}` 
+                                    : ''
+                              } 
+                              alt={userData.name || "Profile"}
+                              onError={(e) => {
+                                console.error("Error loading image:", e.currentTarget.src)
+                                if (userData.image && e.currentTarget.src.includes('?t=')) {
+                                  e.currentTarget.src = userData.image
+                                }
+                              }}
+                              onLoad={() => {
+                                console.log("Image loaded successfully")
+                              }}
+                            />
+                            <AvatarFallback className="text-3xl">
+                              {userData.name?.charAt(0).toUpperCase() || "U"}
+                            </AvatarFallback>
+                          </Avatar>
+                        </button>
                         
                         <div className="flex flex-col items-center gap-3 w-full">
                           <input
@@ -709,7 +710,50 @@ export default function AccountPage() {
         </div>
       </SidebarInset>
 
-      {/* Modal Preview Image */}
+      {/* Full Screen Avatar Preview - DIGANTI DARI MODAL */}
+      {isAvatarPreviewOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center animate-in fade-in duration-200"
+          onClick={() => setIsAvatarPreviewOpen(false)}
+        >
+          {/* Close Button */}
+          <button
+            onClick={() => setIsAvatarPreviewOpen(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
+            aria-label="Close preview"
+          >
+            <IconX className="h-6 w-6 text-white" />
+          </button>
+
+          {/* Image Container - Scrollable */}
+          <div 
+            className="relative w-full h-full overflow-auto flex items-start justify-center p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {avatarPreviewUrl ? (
+              <img
+                src={avatarPreviewUrl}
+                alt="Foto Profil"
+                className="rounded-lg cursor-pointer"
+                onClick={() => setIsAvatarPreviewOpen(false)}
+                style={{ maxWidth: 'none', height: 'auto' }}
+              />
+            ) : (
+              <p className="text-white text-sm">Tidak ada foto untuk ditampilkan.</p>
+            )}
+          </div>
+
+          {/* User Info */}
+          {avatarPreviewUrl && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center pointer-events-none">
+              <p className="text-white text-lg font-medium drop-shadow-lg">{userData.name}</p>
+              <p className="text-white/70 text-sm drop-shadow-lg">{userData.email}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal Preview Image (before upload) - TETAP MODAL */}
       <Dialog open={isImageModalOpen} onOpenChange={setIsImageModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -727,8 +771,6 @@ export default function AccountPage() {
                 />
               </div>
             )}
-
-            {/* File Info */}
 
             {/* Checkbox untuk compress image */}
             <div className="flex items-center gap-2">
